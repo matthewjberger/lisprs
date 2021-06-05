@@ -16,8 +16,8 @@ pub enum Token {
     EndOfFile,
     Equal,
     False,
+    Float(f64),
     GreaterThan,
-    Identifier(String),
     If,
     Illegal(String),
     Integer(i64),
@@ -28,11 +28,12 @@ pub enum Token {
     Minus,
     NotEqual,
     Plus,
+    Procedure(String),
     RightBrace,
     RightParentheses,
-    StringLiteral(String),
     Semicolon,
     Slash,
+    StringLiteral(String),
     True,
 }
 
@@ -47,8 +48,8 @@ impl Display for Token {
             EndOfFile => EOF_CHAR.to_string(),
             Equal => "==".to_string(),
             False => "false".to_string(),
+            Float(number) => number.to_string(),
             GreaterThan => ">".to_string(),
-            Identifier(value) => value.to_string(),
             If => "if".to_string(),
             Illegal(value) => value.to_string(),
             Integer(number) => number.to_string(),
@@ -59,11 +60,12 @@ impl Display for Token {
             Minus => "-".to_string(),
             NotEqual => "!=".to_string(),
             Plus => "+".to_string(),
+            Procedure(value) => value.to_string(),
             RightBrace => "}".to_string(),
             RightParentheses => ")".to_string(),
-            StringLiteral(value) => value.to_string(),
             Semicolon => ";".to_string(),
             Slash => "/".to_string(),
+            StringLiteral(value) => value.to_string(),
             True => "true".to_string(),
         };
         write!(f, "{}", symbol)
@@ -134,8 +136,13 @@ impl<'a> Lexer<'a> {
             }
             c if Self::is_digit(c) => {
                 let mut number = c.to_string();
-                number.push_str(&self.take_while(Self::is_digit));
-                Integer(number.parse::<i64>()?)
+                number.push_str(&self.take_while(|c| Self::is_digit(c) || c == '.'));
+
+                if number.chars().all(|c| c.is_numeric()) {
+                    Integer(number.parse::<i64>()?)
+                } else {
+                    Float(number.parse::<f64>()?)
+                }
             }
             illegal => Illegal(illegal.to_string()),
         };
@@ -187,7 +194,7 @@ impl<'a> Lexer<'a> {
             "true" => True,
             "false" => False,
             "if" => If,
-            _ => Identifier(identifier.to_string()),
+            _ => Procedure(identifier.to_string()),
         }
     }
 
@@ -211,24 +218,23 @@ mod tests {
 
     fn check_tokens(input: &str, expected_tokens: &[Token]) -> Result<()> {
         let mut lexer = Lexer::new(input);
-
         for (token, expected_token) in lexer.tokenize()?.into_iter().zip(expected_tokens.iter()) {
             assert_eq!(token, *expected_token);
         }
-
         Ok(())
     }
 
     #[test]
     fn addition() -> Result<()> {
         check_tokens(
-            "(+ 2 2)",
+            "(+ 2 2.7)",
             &[
                 LeftParentheses,
                 Plus,
                 Integer(2),
-                Integer(2),
+                Float(2.7),
                 RightParentheses,
+                EndOfFile,
             ],
         )
     }
@@ -256,6 +262,7 @@ mod tests {
                 Integer(2),
                 RightParentheses,
                 RightParentheses,
+                EndOfFile,
             ],
         )
     }
@@ -267,28 +274,29 @@ mod tests {
             &[
                 LeftParentheses,
                 Define,
-                Identifier("compose".to_string()),
+                Procedure("compose".to_string()),
                 LeftParentheses,
                 Lambda,
                 LeftParentheses,
-                Identifier("f".to_string()),
-                Identifier("g".to_string()),
+                Procedure("f".to_string()),
+                Procedure("g".to_string()),
                 RightParentheses,
                 LeftParentheses,
                 Lambda,
                 LeftParentheses,
-                Identifier("x".to_string()),
+                Procedure("x".to_string()),
                 RightParentheses,
                 LeftParentheses,
-                Identifier("f".to_string()),
+                Procedure("f".to_string()),
                 LeftParentheses,
-                Identifier("g".to_string()),
-                Identifier("x".to_string()),
+                Procedure("g".to_string()),
+                Procedure("x".to_string()),
                 RightParentheses,
                 RightParentheses,
                 RightParentheses,
                 RightParentheses,
                 RightParentheses,
+                EndOfFile,
             ],
         )
     }
